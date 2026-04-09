@@ -28,6 +28,17 @@ pip install -r requirments.txt
 ### Preparing Datasets
 All dataset annotations must be converted to the unified COCO format. We provide a [demo dataset](https://drive.google.com/file/d/1gvfco5zyRDASGO2BOYCjZuRxbN7MHhsT/view?usp=drive_link) to illustrate the structure and format of the datasets used during training and testing. Please download it and place it in the designated 'data' folder. You can prepare your own data according to the structure and guidelines outlined in this demo dataset.
 
+If your annotations are in PAGE XML format, you can convert them with:
+```
+python scripts/pagexml_to_coco.py /path/to/dataset_root --output-list /path/to/dataset_root/list.txt
+```
+The script recursively looks for PAGE XML files in folders named `page`, matches each XML file to an image with the same stem under the same root folder, and writes per-image COCO JSON files to `/path/to/dataset_root/coco`.
+
+To run only a validation pass (no files written) on XML/image pairs and generated COCO payloads:
+```
+python scripts/pagexml_to_coco.py /path/to/dataset_root --sanity-check
+```
+
 ### Preparing Weights
 DocSAM is build upon Mask2Former and Sentence-BERT, please download their pretrained weights from huggingface and place them in the designated 'pretrained_model' folder.
 - Download [mask2former-swin-base-coco-panoptic](https://huggingface.co/facebook/mask2former-swin-base-coco-panoptic) and place it in the designated './pretrained_model/mask2former' folder.
