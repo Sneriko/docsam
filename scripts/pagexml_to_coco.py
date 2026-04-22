@@ -22,7 +22,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 import xml.etree.ElementTree as ET
-import imghdr
 import struct
 
 
@@ -221,9 +220,10 @@ def parse_pagexml(xml_path: Path, default_label: str) -> ParsedPage:
 
 
 def image_size_from_header(image_path: Path) -> Tuple[int, int]:
-    image_type = imghdr.what(image_path)
     with image_path.open("rb") as f:
         data = f.read(32)
+
+    image_type = detect_image_type(data, image_path)
 
     if image_type == "png":
         if len(data) < 24:
@@ -275,6 +275,26 @@ def image_size_from_header(image_path: Path) -> Tuple[int, int]:
     raise ValueError(
         f"Unsupported image format for header parsing ({image_type}): {image_path}"
     )
+
+
+def detect_image_type(header: bytes, image_path: Path) -> str:
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if header.startswith((b"GIF87a", b"GIF89a")):
+        return "gif"
+    if header.startswith(b"\xff\xd8\xff"):
+        return "jpeg"
+    # Fall back to file suffix when header detection is unavailable.
+    suffix_map = {
+        ".jpg": "jpeg",
+        ".jpeg": "jpeg",
+        ".png": "png",
+        ".gif": "gif",
+    }
+    suffix = image_path.suffix.lower()
+    if suffix in suffix_map:
+        return suffix_map[suffix]
+    return "unknown"
 
 
 def index_images(root: Path) -> Dict[str, List[Path]]:
