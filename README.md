@@ -32,7 +32,7 @@ If your annotations are in PAGE XML format, you can convert them with:
 ```
 python scripts/pagexml_to_coco.py /path/to/dataset_root --output-list /path/to/dataset_root/list.txt
 ```
-The script recursively looks for PAGE XML files in folders named `page`, matches each XML file to an image with the same stem under the same root folder, and writes per-image COCO JSON files to `/path/to/dataset_root/coco`.
+The script recursively looks for PAGE XML files in folders named `page`, but by default only inside top-level dataset folders that start with `RA` (use `--collection-prefix ""` to disable this filter, or set a different prefix). It matches each XML file to an image with the same stem under the same root folder, and writes per-image COCO JSON files to `/path/to/dataset_root/coco`.
 
 To run only a validation pass (no files written) on XML/image pairs and generated COCO payloads:
 ```

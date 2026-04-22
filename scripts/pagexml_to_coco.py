@@ -101,6 +101,16 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional cap on number of PAGE XML files to process (useful for quick checks).",
     )
+    parser.add_argument(
+        "--collection-prefix",
+        type=str,
+        default="RA",
+        help=(
+            "Only process PAGE XML files whose top-level dataset folder under dataset_root "
+            "starts with this prefix (case-insensitive). Use empty string to disable filtering. "
+            "Default: RA."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -319,12 +329,19 @@ def index_images(root: Path) -> Dict[str, List[Path]]:
     return image_map
 
 
-def find_pagexml_files(root: Path) -> List[Path]:
-    return sorted(
-        p
-        for p in root.rglob("*.xml")
-        if p.is_file() and p.parent.name.lower() == "page"
-    )
+def find_pagexml_files(root: Path, collection_prefix: str) -> List[Path]:
+    normalized_prefix = collection_prefix.strip().lower()
+    pagexml_files: List[Path] = []
+    for p in root.rglob("*.xml"):
+        if not p.is_file() or p.parent.name.lower() != "page":
+            continue
+        if normalized_prefix:
+            rel_parts = p.relative_to(root).parts
+            top_level_dir = rel_parts[0].lower() if rel_parts else ""
+            if not top_level_dir.startswith(normalized_prefix):
+                continue
+        pagexml_files.append(p)
+    return sorted(pagexml_files)
 
 
 def choose_best_image_match(xml_path: Path, matches: List[Path]) -> Path:
@@ -430,14 +447,19 @@ def main() -> int:
     output_coco_dir = (args.output_coco_dir or (root / "coco")).resolve()
     output_coco_dir.mkdir(parents=True, exist_ok=True)
 
-    pagexml_files = find_pagexml_files(root)
+    pagexml_files = find_pagexml_files(root, collection_prefix=args.collection_prefix)
     if args.max_files is not None:
         if args.max_files <= 0:
             raise ValueError("--max-files must be > 0")
         pagexml_files = pagexml_files[: args.max_files]
     if not pagexml_files:
+        prefix_note = (
+            f" with top-level folder prefix '{args.collection_prefix}'"
+            if args.collection_prefix.strip()
+            else ""
+        )
         raise FileNotFoundError(
-            f"No PAGE XML files found under {root} in subfolders named 'page'."
+            f"No PAGE XML files found under {root} in subfolders named 'page'{prefix_note}."
         )
 
     image_map = index_images(root)
