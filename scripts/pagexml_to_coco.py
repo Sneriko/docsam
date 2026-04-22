@@ -323,6 +323,9 @@ def index_images(root: Path) -> Dict[str, List[Path]]:
     for path in root.rglob("*"):
         if not path.is_file():
             continue
+        if path.name.startswith("._"):
+            # Ignore AppleDouble sidecar files created on macOS volumes.
+            continue
         if path.suffix.lower() not in SUPPORTED_IMAGE_SUFFIXES:
             continue
         image_map.setdefault(path.stem, []).append(path)
@@ -334,6 +337,9 @@ def find_pagexml_files(root: Path, collection_prefix: str) -> List[Path]:
     pagexml_files: List[Path] = []
     for p in root.rglob("*.xml"):
         if not p.is_file() or p.parent.name.lower() != "page":
+            continue
+        if p.name.startswith("._"):
+            # Ignore AppleDouble sidecar files created on macOS volumes.
             continue
         if normalized_prefix:
             rel_parts = p.relative_to(root).parts
