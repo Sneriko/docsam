@@ -34,6 +34,11 @@ python scripts/pagexml_to_coco.py /path/to/dataset_root --output-list /path/to/d
 ```
 The script recursively looks for PAGE XML files in folders named `page`, but by default only inside top-level dataset folders that start with `RA` (use `--collection-prefix ""` to disable this filter, or set a different prefix). It matches each XML file to an image with the same stem under the same root folder, and writes per-image COCO JSON files to `/path/to/dataset_root/coco`.
 
+By default, each COCO `images[0].file_name` is written as `image/<basename>`. If your images are stored elsewhere and you want to preserve the actual relative path from `dataset_root`, add:
+```
+python scripts/pagexml_to_coco.py /path/to/dataset_root --file-name-mode relative
+```
+
 To run only a validation pass (no files written) on XML/image pairs and generated COCO payloads:
 ```
 python scripts/pagexml_to_coco.py /path/to/dataset_root --sanity-check
