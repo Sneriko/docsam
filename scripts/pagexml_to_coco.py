@@ -65,6 +65,17 @@ def parse_args() -> argparse.Namespace:
         help="Optional path to write list.txt (one image filename per line).",
     )
     parser.add_argument(
+        "--file-name-mode",
+        type=str,
+        choices=("fixed-dir", "relative"),
+        default="fixed-dir",
+        help=(
+            "How to write COCO images[0].file_name: "
+            "'fixed-dir' writes <image-dir-name>/<basename> (default), "
+            "'relative' writes path relative to dataset_root."
+        ),
+    )
+    parser.add_argument(
         "--image-dir-name",
         type=str,
         default="image",
@@ -373,8 +384,10 @@ def choose_best_image_match(xml_path: Path, matches: List[Path]) -> Path:
 
 def build_coco_for_image(
     image_path: Path,
+    dataset_root: Path,
     xml_width: Optional[int],
     xml_height: Optional[int],
+    file_name_mode: str,
     image_dir_name: str,
     annotations: Sequence[RegionAnnotation],
     category_to_id: Dict[str, int],
@@ -403,11 +416,16 @@ def build_coco_for_image(
         for label, idx in sorted(category_to_id.items(), key=lambda x: x[1])
     ]
 
+    if file_name_mode == "relative":
+        file_name = str(image_path.resolve().relative_to(dataset_root.resolve()))
+    else:
+        file_name = str(Path(image_dir_name) / image_path.name)
+
     return {
         "images": [
             {
                 "id": 1,
-                "file_name": str(Path(image_dir_name) / image_path.name),
+                "file_name": file_name,
                 "width": width,
                 "height": height,
             }
@@ -516,8 +534,10 @@ def main() -> int:
     for xml_path, image_path, parsed_page in parsed:
         coco = build_coco_for_image(
             image_path=image_path,
+            dataset_root=root,
             xml_width=parsed_page.width,
             xml_height=parsed_page.height,
+            file_name_mode=args.file_name_mode,
             image_dir_name=args.image_dir_name,
             annotations=parsed_page.annotations,
             category_to_id=category_to_id,
