@@ -143,7 +143,16 @@ def sanitize_label(raw: str, default_label: str) -> str:
     return cleaned
 
 
+def label_from_element_tag(el: ET.Element, default_label: str) -> str:
+    tag = strip_namespace(el.tag).strip()
+    if not tag:
+        return default_label
+    return sanitize_label(tag, default_label)
+
+
 def infer_region_label(region_el: ET.Element, default_label: str) -> str:
+    tag_fallback = label_from_element_tag(region_el, default_label)
+
     for attr_name in ("type", "custom", "regionType"):
         if region_el.get(attr_name):
             value = region_el.get(attr_name, "")
@@ -151,8 +160,10 @@ def infer_region_label(region_el: ET.Element, default_label: str) -> str:
                 match = re.search(r"type\s*:\s*([^;}]*)", value)
                 if match:
                     return sanitize_label(match.group(1), default_label)
+                # Ignore generic custom metadata like readingOrder when no explicit type is present.
+                continue
             return sanitize_label(value, default_label)
-    return default_label
+    return tag_fallback
 
 
 def find_child_by_local_name(parent: ET.Element, local_name: str) -> Optional[ET.Element]:
@@ -165,7 +176,7 @@ def find_child_by_local_name(parent: ET.Element, local_name: str) -> Optional[ET
 def region_elements(page_el: ET.Element) -> Iterable[ET.Element]:
     for el in page_el.iter():
         tag = strip_namespace(el.tag)
-        if tag.endswith("Region") and tag != "Page":
+        if (tag.endswith("Region") or tag == "TextLine") and tag != "Page":
             yield el
 
 
