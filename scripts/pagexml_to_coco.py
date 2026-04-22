@@ -163,6 +163,10 @@ def label_from_element_tag(el: ET.Element, default_label: str) -> str:
 def infer_region_label(region_el: ET.Element, default_label: str) -> str:
     tag_fallback = label_from_element_tag(region_el, default_label)
 
+    # Keep text layout labels stable and constrained.
+    if tag_fallback in {"textregion", "textline"}:
+        return tag_fallback
+
     for attr_name in ("type", "custom", "regionType"):
         if region_el.get(attr_name):
             value = region_el.get(attr_name, "")
@@ -186,7 +190,8 @@ def find_child_by_local_name(parent: ET.Element, local_name: str) -> Optional[ET
 def region_elements(page_el: ET.Element) -> Iterable[ET.Element]:
     for el in page_el.iter():
         tag = strip_namespace(el.tag)
-        if (tag.endswith("Region") or tag == "TextLine") and tag != "Page":
+        # Only export text structures.
+        if tag in {"TextRegion", "TextLine"}:
             yield el
 
 
