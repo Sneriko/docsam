@@ -99,7 +99,7 @@ class DocSAM_GT(data.Dataset):
         self.dataset_names = self._get_dataset_names(self.data_paths)
         
         if self.stage == "train":
-            self.dataset_sampling_probabilities = self._class_num_of_each_dataset(self.data_paths, self.image_names)
+            self.dataset_sampling_probabilities = self._class_num_of_each_dataset(self.image_names)
         else:
             self.dataset_sampling_probabilities = [1.0 / len(self.data_paths) for _ in self.data_paths]
             
@@ -170,21 +170,20 @@ class DocSAM_GT(data.Dataset):
         return datasets
     
     
-    def _class_num_of_each_dataset(self, data_paths, image_names):
+    def _class_num_of_each_dataset(self, image_names):
         """
         Calculates the sampling probabilities based on the number of classes in each dataset.
         
         Parameters:
-        - data_paths: list of str, paths to the datasets.
         - image_names: list of list of str, names of images in each dataset.
         
         Returns:
         - list of float, sampling probabilities for each dataset.
         """
 
-        class_nums = [0 for _ in data_paths]
-        for i, (data_path, image_name) in enumerate(zip(data_paths, image_names)):
-            coco_file = os.path.join(data_path, "coco", os.path.splitext(image_name[0])[0] + ".json")
+        class_nums = [0 for _ in self.data_paths]
+        for i, image_name in enumerate(image_names):
+            coco_file = self._resolve_coco_path(i, 0)
             coco_data = json.load(open(coco_file))
             categories = [item for item in coco_data["categories"] if item["name"] != "_background_"]
             class_nums[i] = float(len(categories))
