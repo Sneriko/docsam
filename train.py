@@ -52,6 +52,8 @@ SNAPSHOT_DIR = './snapshots/'
 START_ITER = 0
 TOTAL_ITER = 1000
 GPU_IDS = '0'
+SEED = 1029
+EVAL_SPLIT_SIZE = 0.0
 
 
 def str2bool(input_str):
@@ -120,6 +122,8 @@ def get_arguments():
     parser.add_argument("--total-iter", type=int, default=TOTAL_ITER, help='Total number of iterations')
 
     parser.add_argument("--gpus", type=str, default=GPU_IDS, help='Comma-separated list of GPU IDs to use')
+    parser.add_argument("--seed", type=int, default=SEED, help='Random seed used for reproducibility and auto split')
+    parser.add_argument("--eval-split-size", type=float, default=EVAL_SPLIT_SIZE, help='Auto split ratio for eval when list_val.txt is missing (0 disables)')
 
     return parser.parse_args()
 
@@ -281,6 +285,7 @@ if __name__ == '__main__':
 
     # Parse command-line arguments
     args = get_arguments()
+    seed_torch(args.seed)
 
     # Initialize the DocSAM model
     model = DocSAM(model_size=args.model_size)
@@ -321,7 +326,17 @@ if __name__ == '__main__':
         raise ValueError("--eval-coco-path length must match --eval-path length.")
 
     # Create training dataset and loader
-    train_set = DocSAM_GT(args.train_path, coco_paths=args.train_coco_path, short_range=args.short_range, patch_size=args.patch_size, patch_num=args.patch_num, keep_size=args.keep_size, stage="train")
+    train_set = DocSAM_GT(
+        args.train_path,
+        coco_paths=args.train_coco_path,
+        short_range=args.short_range,
+        patch_size=args.patch_size,
+        patch_num=args.patch_num,
+        keep_size=args.keep_size,
+        stage="train",
+        eval_split_size=args.eval_split_size,
+        split_seed=args.seed,
+    )
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_set, shuffle=True)
     train_loader = DataLoaderX(train_set, batch_size=int(args.batch_size/len(args.gpus.split(','))), num_workers=4, pin_memory=True, sampler=train_sampler, collate_fn=train_set.collate_fn)
     
@@ -338,7 +353,7 @@ if __name__ == '__main__':
     
     if local_rank == 0:
         # Evaluate initial performance metrics
-        max_bbox_mAP, max_mask_mAP, max_mask_mF1, max_mIoU = evaluate_all_datasets(args, model, stage="train") 
+        max_bbox_mAP, max_mask_mAP, max_mask_mF1, max_mIoU = evaluate_all_datasets(args, model, stage="test") 
         
     flag = True
     for i_epoch in range(num_epoch):
@@ -377,7 +392,7 @@ if __name__ == '__main__':
             # Save snapshots and update best model if necessary
             if current_iter % 200 == 0 or current_iter == args.total_iter:
                 if local_rank == 0:
-                    bbox_mAP, mask_mAP, mask_mF1, mIoU = evaluate_all_datasets(args, model, stage="train") 
+                    bbox_mAP, mask_mAP, mask_mF1, mIoU = evaluate_all_datasets(args, model, stage="test") 
                     if mask_mAP > max_mask_mAP:
                         print(datetime.datetime.now(), 'Best model updated, mAP: {:.4f}-->{:.4f}, taking snapshot...'.format(max_mask_mAP, mask_mAP))
                         torch.save(model.module.state_dict(), os.path.join(args.snapshot_dir, 'best_model.pth'))

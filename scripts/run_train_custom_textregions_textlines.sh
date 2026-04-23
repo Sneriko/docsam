@@ -52,6 +52,8 @@ SNAPSHOT_DIR=./snapshots/custom_textregions_textlines/
 START_ITER=0
 TOTAL_ITER=12000
 GPU_IDS=0
+SEED=1029
+EVAL_SPLIT_SIZE=0.1
 
 export OMP_NUM_THREADS=1
 CUDA_VISIBLE_DEVICES=${GPU_IDS} torchrun --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 --nproc_per_node=1 train.py \
@@ -63,4 +65,5 @@ CUDA_VISIBLE_DEVICES=${GPU_IDS} torchrun --rdzv_backend=c10d --rdzv_endpoint=loc
   --short-range ${SHORT_RANGE} --patch-size ${PATCH_SIZE} --patch-num ${PATCH_NUM} --keep-size ${KEEP_SIZE} \
   --batch-size ${BATCH_SIZE} --learning-rate ${LEARNING_RATE} --momentum ${MOMENTUM} --weight-decay ${WEIGHT_DECAY} --lr-scheduler ${LR_SCHEDULER} \
   --fine-tune ${FINE_TUNE} --restore-from ${RESTORE_FROM} --snapshot-dir ${SNAPSHOT_DIR} \
-  --start-iter ${START_ITER} --total-iter ${TOTAL_ITER} --gpus ${GPU_IDS}
+  --start-iter ${START_ITER} --total-iter ${TOTAL_ITER} --gpus ${GPU_IDS} \
+  --seed ${SEED} --eval-split-size ${EVAL_SPLIT_SIZE}
