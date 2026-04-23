@@ -118,6 +118,7 @@ def get_arguments():
     parser.add_argument('--model-size', type=str, default=MODEL_SIZE, help='Model size: tiny, small, base, large.')
     parser.add_argument("--eval-path", type=str, nargs='+', help='A list of evaluation paths')
     parser.add_argument("--eval-coco-path", type=str, nargs='+', default=None, help='Optional list of COCO roots for evaluation datasets')
+    parser.add_argument("--eval-list-path", type=str, nargs='+', default=None, help='Optional list file paths for evaluation datasets')
     parser.add_argument("--save-path", type=str, default=SAVE_PATH, help='Path to save outputs')
     parser.add_argument("--short-range", type=parse_tuple, default=SHORT_RANGE, help='Short side range')
     parser.add_argument("--patch-size", type=parse_tuple, default=PATCH_SIZE, help='Patch size sampled from each image during training')
@@ -1382,6 +1383,8 @@ def evaluate_all_datasets(args, model, stage="test"):
 
     if (args.eval_coco_path is not None) and (len(args.eval_coco_path) != len(args.eval_path)):
         raise ValueError("--eval-coco-path length must match --eval-path length.")
+    if (args.eval_list_path is not None) and (len(args.eval_list_path) != len(args.eval_path)):
+        raise ValueError("--eval-list-path length must match --eval-path length.")
 
     datas = []
     bbox_mAPs = []
@@ -1409,9 +1412,11 @@ def evaluate_all_datasets(args, model, stage="test"):
 
         # Prepare the test dataset and loader
         coco_path = None if args.eval_coco_path is None else [args.eval_coco_path[index]]
+        list_path = None if args.eval_list_path is None else [args.eval_list_path[index]]
         test_set = DocSAM_GT(
             [data_path],
             coco_paths=coco_path,
+            list_paths=list_path,
             short_range=args.short_range,
             patch_size=args.patch_size,
             patch_num=args.patch_num,
@@ -1660,6 +1665,8 @@ def inference_all_datasets(args, model, stage="inference"):
 
     if (args.eval_coco_path is not None) and (len(args.eval_coco_path) != len(args.eval_path)):
         raise ValueError("--eval-coco-path length must match --eval-path length.")
+    if (args.eval_list_path is not None) and (len(args.eval_list_path) != len(args.eval_path)):
+        raise ValueError("--eval-list-path length must match --eval-path length.")
 
     # Iterate over all inference data paths provided in args
     for index, data_path in enumerate(args.eval_path):
@@ -1667,9 +1674,11 @@ def inference_all_datasets(args, model, stage="inference"):
 
         # Prepare the test dataset and loader
         coco_path = None if args.eval_coco_path is None else [args.eval_coco_path[index]]
+        list_path = None if args.eval_list_path is None else [args.eval_list_path[index]]
         test_set = DocSAM_GT(
             [data_path],
             coco_paths=coco_path,
+            list_paths=list_path,
             short_range=args.short_range,
             patch_size=args.patch_size,
             patch_num=args.patch_num,

@@ -83,6 +83,19 @@ If your COCO files are stored under a different root than images, pass the optio
 - `--train-coco-path ...` (aligned 1:1 with `--train-path`)
 - `--eval-coco-path ...` (aligned 1:1 with `--eval-path`)
 
+If your split list files are not located at `<dataset_root>/list*.txt`, you can also pass:
+- `--train-list-path ...` (aligned 1:1 with `--train-path`)
+- `--eval-list-path ...` (aligned 1:1 with `--eval-path`)
+
+When `--eval-split-size > 0`, auto-splitting is applied when using `list.txt` **or** an explicitly provided list path via `--train-list-path` / `--eval-list-path`.
+
+For a single dataset, you can provide only:
+- `--train-path ...`
+- `--train-list-path ...`
+- `--eval-split-size <ratio>`
+
+and omit `--eval-path` / `--eval-list-path`; `train.py` will reuse training paths and split automatically.
+
 For quick list generation:
 ```
 find /path/to/your_dataset/image -maxdepth 1 -type f | sed 's#^.*/##' | sort > /path/to/your_dataset/list.txt
