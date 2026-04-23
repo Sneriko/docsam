@@ -115,6 +115,7 @@ def get_arguments():
     parser.add_argument('--stage', type=str, default="test", help='Test or inference.')
     parser.add_argument('--model-size', type=str, default=MODEL_SIZE, help='Model size: tiny, small, base, large.')
     parser.add_argument("--eval-path", type=str, nargs='+', help='A list of evaluation paths')
+    parser.add_argument("--eval-coco-path", type=str, nargs='+', default=None, help='Optional list of COCO roots for evaluation datasets')
     parser.add_argument("--save-path", type=str, default=SAVE_PATH, help='Path to save outputs')
     parser.add_argument("--short-range", type=parse_tuple, default=SHORT_RANGE, help='Short side range')
     parser.add_argument("--patch-size", type=parse_tuple, default=PATCH_SIZE, help='Patch size sampled from each image during training')
@@ -1375,6 +1376,9 @@ def evaluate_all_datasets(args, model, stage="test"):
     - mean_mIoU (float): Mean Intersection over Union (mIoU) for semantic segmentation across all datasets.
     """
 
+    if (args.eval_coco_path is not None) and (len(args.eval_coco_path) != len(args.eval_path)):
+        raise ValueError("--eval-coco-path length must match --eval-path length.")
+
     datas = []
     bbox_mAPs = []
     mask_mAPs = []
@@ -1400,7 +1404,8 @@ def evaluate_all_datasets(args, model, stage="test"):
         datas.append(data)
 
         # Prepare the test dataset and loader
-        test_set = DocSAM_GT([data_path], short_range=args.short_range, patch_size=args.patch_size, patch_num=args.patch_num, keep_size=args.keep_size,stage=stage)
+        coco_path = None if args.eval_coco_path is None else [args.eval_coco_path[index]]
+        test_set = DocSAM_GT([data_path], coco_paths=coco_path, short_range=args.short_range, patch_size=args.patch_size, patch_num=args.patch_num, keep_size=args.keep_size,stage=stage)
         test_set = CustomSubset(test_set, range(0, min(args.max_num, len(test_set))))
 
         gpu_num = len(args.gpus.split(",")) # Count the number of GPUs available
@@ -1639,12 +1644,16 @@ def inference_all_datasets(args, model, stage="inference"):
     - None: This function performs inference on all datasets and saves results but does not return any value.
     """
 
+    if (args.eval_coco_path is not None) and (len(args.eval_coco_path) != len(args.eval_path)):
+        raise ValueError("--eval-coco-path length must match --eval-path length.")
+
     # Iterate over all inference data paths provided in args
     for index, data_path in enumerate(args.eval_path):
         print(f"Testing: {index + 1} / {len(args.eval_path)} : {data_path}")
 
         # Prepare the test dataset and loader
-        test_set = DocSAM_GT([data_path], short_range=args.short_range, patch_size=args.patch_size, patch_num=args.patch_num, keep_size=args.keep_size, stage=stage)
+        coco_path = None if args.eval_coco_path is None else [args.eval_coco_path[index]]
+        test_set = DocSAM_GT([data_path], coco_paths=coco_path, short_range=args.short_range, patch_size=args.patch_size, patch_num=args.patch_num, keep_size=args.keep_size, stage=stage)
         # Limit the dataset size to `args.max_num` if specified
         test_set = CustomSubset(test_set, range(0, min(args.max_num, len(test_set))))
         
