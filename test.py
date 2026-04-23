@@ -52,6 +52,8 @@ MAX_NUM = 10
 BATCH_SIZE = 1
 RESTORE_FROM = './snapshots/last_model.pth'
 GPU_IDS = '0'
+SEED = 1029
+EVAL_SPLIT_SIZE = 0.0
 
 
 def str2bool(input_str):
@@ -125,6 +127,8 @@ def get_arguments():
     parser.add_argument("--batch-size", type=int, default=BATCH_SIZE, help='Batch size for processing')
     parser.add_argument("--restore-from", type=str, default=RESTORE_FROM, help='Path to restore model from')
     parser.add_argument("--gpus", type=str, default=GPU_IDS, help='Comma-separated GPU IDs')
+    parser.add_argument("--seed", type=int, default=SEED, help='Random seed used for auto split')
+    parser.add_argument("--eval-split-size", type=float, default=EVAL_SPLIT_SIZE, help='Auto split ratio for eval when list_val.txt is missing (0 disables)')
 
     return parser.parse_args()
 
@@ -1405,7 +1409,17 @@ def evaluate_all_datasets(args, model, stage="test"):
 
         # Prepare the test dataset and loader
         coco_path = None if args.eval_coco_path is None else [args.eval_coco_path[index]]
-        test_set = DocSAM_GT([data_path], coco_paths=coco_path, short_range=args.short_range, patch_size=args.patch_size, patch_num=args.patch_num, keep_size=args.keep_size,stage=stage)
+        test_set = DocSAM_GT(
+            [data_path],
+            coco_paths=coco_path,
+            short_range=args.short_range,
+            patch_size=args.patch_size,
+            patch_num=args.patch_num,
+            keep_size=args.keep_size,
+            stage=stage,
+            eval_split_size=getattr(args, "eval_split_size", 0.0),
+            split_seed=getattr(args, "seed", 1029),
+        )
         test_set = CustomSubset(test_set, range(0, min(args.max_num, len(test_set))))
 
         gpu_num = len(args.gpus.split(",")) # Count the number of GPUs available
@@ -1653,7 +1667,17 @@ def inference_all_datasets(args, model, stage="inference"):
 
         # Prepare the test dataset and loader
         coco_path = None if args.eval_coco_path is None else [args.eval_coco_path[index]]
-        test_set = DocSAM_GT([data_path], coco_paths=coco_path, short_range=args.short_range, patch_size=args.patch_size, patch_num=args.patch_num, keep_size=args.keep_size, stage=stage)
+        test_set = DocSAM_GT(
+            [data_path],
+            coco_paths=coco_path,
+            short_range=args.short_range,
+            patch_size=args.patch_size,
+            patch_num=args.patch_num,
+            keep_size=args.keep_size,
+            stage=stage,
+            eval_split_size=getattr(args, "eval_split_size", 0.0),
+            split_seed=getattr(args, "seed", 1029),
+        )
         # Limit the dataset size to `args.max_num` if specified
         test_set = CustomSubset(test_set, range(0, min(args.max_num, len(test_set))))
         

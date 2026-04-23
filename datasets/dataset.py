@@ -42,7 +42,7 @@ def PolygonToBBox(polygons):
 
 
 class DocSAM_GT(data.Dataset):
-    def __init__(self, data_paths, coco_paths=None, short_range=(704, 896), patch_size=(640, 640), patch_num=1, keep_size=False, stage="train"):
+    def __init__(self, data_paths, coco_paths=None, short_range=(704, 896), patch_size=(640, 640), patch_num=1, keep_size=False, stage="train", eval_split_size=0.0, split_seed=1029):
         """
         Initializes the dataset.
         
@@ -61,19 +61,30 @@ class DocSAM_GT(data.Dataset):
         self.keep_size = keep_size
         self.stage = stage
         self.coco_paths = coco_paths
+        self.eval_split_size = eval_split_size
+        self.split_seed = split_seed
         if self.coco_paths is None:
             self.coco_paths = self.data_paths
         if len(self.coco_paths) != len(self.data_paths):
             raise ValueError("Length of coco_paths must match length of data_paths.")
+        if self.eval_split_size < 0 or self.eval_split_size >= 1:
+            raise ValueError("eval_split_size must be in [0, 1).")
 
         self.image_names = []
-        for data_path in self.data_paths:
+        for data_idx, data_path in enumerate(self.data_paths):
             data_list = os.path.join(data_path, "list.txt")
             if stage == "train" and os.path.exists(os.path.join(data_path, "list_train.txt")):
                 data_list = os.path.join(data_path, "list_train.txt")
             elif stage == "test" and os.path.exists(os.path.join(data_path, "list_val.txt")):
                 data_list = os.path.join(data_path, "list_val.txt")
-            self.image_names.append([item.strip() for item in open(data_list, encoding='utf-8')])
+            image_names = [item.strip() for item in open(data_list, encoding='utf-8') if item.strip()]
+            if (
+                self.eval_split_size > 0
+                and os.path.basename(data_list) == "list.txt"
+                and stage in ["train", "test"]
+            ):
+                image_names = self._split_image_names(image_names, data_idx)
+            self.image_names.append(image_names)
                 
         self.dataset_names = self._get_dataset_names(self.data_paths)
         
@@ -83,6 +94,23 @@ class DocSAM_GT(data.Dataset):
             self.dataset_sampling_probabilities = [1.0 / len(self.data_paths) for _ in self.data_paths]
             
         print("Image number of each dataset:", [len(item) for item in self.image_names])
+
+
+    def _split_image_names(self, image_names, data_idx):
+        if len(image_names) <= 1:
+            return image_names
+
+        rng = random.Random(self.split_seed + data_idx)
+        indices = list(range(len(image_names)))
+        rng.shuffle(indices)
+
+        eval_count = int(round(len(indices) * self.eval_split_size))
+        eval_count = min(max(eval_count, 1), len(indices) - 1)
+
+        eval_indices = set(indices[:eval_count])
+        if self.stage == "test":
+            return [name for idx, name in enumerate(image_names) if idx in eval_indices]
+        return [name for idx, name in enumerate(image_names) if idx not in eval_indices]
 
 
     def _resolve_coco_path(self, data_idx, index):
