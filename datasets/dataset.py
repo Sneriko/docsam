@@ -3,6 +3,7 @@ import random
 import json
 import copy
 import math
+import sys
 
 import cv2
 import numpy as np
@@ -13,6 +14,9 @@ from torch.utils import data
 from torch.nn import functional as F
 import pycocotools.mask as mask_utils
 import timeit
+
+
+USE_JPEG4PY = (sys.version_info < (3, 13)) and (os.getenv("DOCSAM_USE_JPEG4PY", "0") == "1")
 
 
 def BboxToPolygon(bbox):
@@ -233,9 +237,9 @@ class DocSAM_GT(data.Dataset):
                 img_path = img_path_resize
 
         if img_path.endswith(".jpg"):
-            try:
-                image = jpeg.JPEG(img_path).decode()[:,:,::-1].copy()
-            except:
+            if USE_JPEG4PY:
+                image = jpeg.JPEG(img_path).decode()[:, :, ::-1].copy()
+            else:
                 image = cv2.imread(img_path, cv2.IMREAD_COLOR)
         elif img_path.endswith(".gif") or img_path.endswith(".tif"):
             image = Image.open(img_path).convert("RGB")
