@@ -161,6 +161,23 @@ def MakePath(path):
         return
 
 
+def _same_path_list(path_list_a, path_list_b):
+    """
+    Returns True if two path lists refer to the same locations (order-sensitive),
+    allowing relative/absolute spellings of the same paths.
+    """
+
+    if path_list_a is None or path_list_b is None:
+        return False
+    if len(path_list_a) != len(path_list_b):
+        return False
+
+    for path_a, path_b in zip(path_list_a, path_list_b):
+        if os.path.realpath(path_a) != os.path.realpath(path_b):
+            return False
+    return True
+
+
 class DataLoaderX(DataLoader):
     """
     Custom DataLoader that uses a background generator to load data asynchronously.
@@ -324,16 +341,31 @@ if __name__ == '__main__':
     
     if args.train_path is None:
         raise ValueError("--train-path is required.")
+    same_eval_and_train_paths = _same_path_list(args.eval_path, args.train_path)
+
     if args.eval_path is None:
         if args.eval_split_size <= 0:
             raise ValueError("--eval-path is required when --eval-split-size is 0.")
         args.eval_path = args.train_path
+        same_eval_and_train_paths = True
         if args.eval_coco_path is None:
             args.eval_coco_path = args.train_coco_path
         if args.eval_list_path is None:
             args.eval_list_path = args.train_list_path
         if local_rank == 0:
             print("INFO: --eval-path not provided, reusing --train-path and splitting with --eval-split-size.")
+    else:
+        # Convenience fallback:
+        # when eval path is exactly the same as train path, reuse train coco/list
+        # settings if explicit eval options are omitted.
+        if args.eval_coco_path is None and args.train_coco_path is not None and same_eval_and_train_paths:
+            args.eval_coco_path = args.train_coco_path
+            if local_rank == 0:
+                print("INFO: --eval-coco-path not provided, reusing --train-coco-path because --eval-path equals --train-path.")
+        if args.eval_list_path is None and args.train_list_path is not None and same_eval_and_train_paths:
+            args.eval_list_path = args.train_list_path
+            if local_rank == 0:
+                print("INFO: --eval-list-path not provided, reusing --train-list-path because --eval-path equals --train-path.")
 
     if (args.train_coco_path is not None) and (len(args.train_coco_path) != len(args.train_path)):
         raise ValueError("--train-coco-path length must match --train-path length.")
