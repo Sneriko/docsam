@@ -1,6 +1,7 @@
 import os
 import math
 import random
+from pathlib import Path
 import numpy as np
 
 import torch
@@ -28,16 +29,38 @@ class DocSAM(nn.Module):
     def __init__(self, model_size="base"):
         super(DocSAM, self).__init__()
 
+        repo_root = Path(__file__).resolve().parent.parent
+        pretrained_root = repo_root / "pretrained_model"
+
         # Set your pretrained model path here.
-        if model_size=="base":
-            mask2former_path = "./pretrained_model/mask2former/facebook-mask2former-swin-base-coco-panoptic/"
-        elif model_size=="large":
-            mask2former_path = "./pretrained_model/mask2former/facebook-mask2former-swin-large-coco-panoptic/"
+        if model_size == "base":
+            mask2former_candidates = [
+                pretrained_root / "mask2former" / "facebook-mask2former-swin-base-coco-panoptic",
+                pretrained_root / "mask2former" / "mask2former-swin-base-coco-panoptic",
+            ]
+        elif model_size == "large":
+            mask2former_candidates = [
+                pretrained_root / "mask2former" / "facebook-mask2former-swin-large-coco-panoptic",
+                pretrained_root / "mask2former" / "mask2former-swin-large-coco-panoptic",
+            ]
         else:
-            mask2former_path = "./pretrained_model/mask2former/facebook-mask2former-swin-base-coco-panoptic/"
+            mask2former_candidates = [
+                pretrained_root / "mask2former" / "facebook-mask2former-swin-base-coco-panoptic",
+                pretrained_root / "mask2former" / "mask2former-swin-base-coco-panoptic",
+            ]
+
+        mask2former_path = next((str(path) for path in mask2former_candidates if path.is_dir()), None)
+        if mask2former_path is None:
+            raise FileNotFoundError(f"Could not find a valid Mask2Former directory in: {mask2former_candidates}")
         print("mask2former_path:", mask2former_path)
-        
-        sentence_path = "./pretrained_model/sentence/all-MiniLM-L6-v2"
+
+        sentence_candidates = [
+            pretrained_root / "sentence" / "all-MiniLM-L6-v2",
+            pretrained_root / "sentence" / "sentence-transformers-all-MiniLM-L6-v2",
+        ]
+        sentence_path = next((str(path) for path in sentence_candidates if path.is_dir()), None)
+        if sentence_path is None:
+            raise FileNotFoundError(f"Could not find a valid sentence model directory in: {sentence_candidates}")
         print("sentence_path:", sentence_path)
         
         # Set your configurations here.
