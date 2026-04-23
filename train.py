@@ -101,6 +101,8 @@ def get_arguments():
     parser.add_argument("--eval-path", nargs='+', type=str, help='A list of paths to evaluation datasets') 
     parser.add_argument('--train-coco-path', nargs='+', type=str, default=None, help='Optional list of COCO roots for training datasets')
     parser.add_argument("--eval-coco-path", nargs='+', type=str, default=None, help='Optional list of COCO roots for evaluation datasets')
+    parser.add_argument('--train-list-path', nargs='+', type=str, default=None, help='Optional list file paths for training datasets')
+    parser.add_argument("--eval-list-path", nargs='+', type=str, default=None, help='Optional list file paths for evaluation datasets')
     parser.add_argument("--save-path", type=str, default=SAVE_PATH, help='Path to save the model predicts')
     
     parser.add_argument("--short-range", type=parse_tuple, default=SHORT_RANGE, help='Short side range')
@@ -320,15 +322,33 @@ if __name__ == '__main__':
     model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], find_unused_parameters=True)
     model.train()
     
+    if args.train_path is None:
+        raise ValueError("--train-path is required.")
+    if args.eval_path is None:
+        if args.eval_split_size <= 0:
+            raise ValueError("--eval-path is required when --eval-split-size is 0.")
+        args.eval_path = args.train_path
+        if args.eval_coco_path is None:
+            args.eval_coco_path = args.train_coco_path
+        if args.eval_list_path is None:
+            args.eval_list_path = args.train_list_path
+        if local_rank == 0:
+            print("INFO: --eval-path not provided, reusing --train-path and splitting with --eval-split-size.")
+
     if (args.train_coco_path is not None) and (len(args.train_coco_path) != len(args.train_path)):
         raise ValueError("--train-coco-path length must match --train-path length.")
     if (args.eval_coco_path is not None) and (len(args.eval_coco_path) != len(args.eval_path)):
         raise ValueError("--eval-coco-path length must match --eval-path length.")
+    if (args.train_list_path is not None) and (len(args.train_list_path) != len(args.train_path)):
+        raise ValueError("--train-list-path length must match --train-path length.")
+    if (args.eval_list_path is not None) and (len(args.eval_list_path) != len(args.eval_path)):
+        raise ValueError("--eval-list-path length must match --eval-path length.")
 
     # Create training dataset and loader
     train_set = DocSAM_GT(
         args.train_path,
         coco_paths=args.train_coco_path,
+        list_paths=args.train_list_path,
         short_range=args.short_range,
         patch_size=args.patch_size,
         patch_num=args.patch_num,
