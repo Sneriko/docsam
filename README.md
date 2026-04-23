@@ -58,6 +58,38 @@ sh run_test_demo.sh
 ```
 The predict outputs can be found in the 'outputs' folder.
 
+
+### Training on a custom dataset with one COCO JSON per image
+If your dataset already has one COCO annotation file per image (for example, text region + text line classes), use `train.py` directly or start from `scripts/run_train_custom_textregions_textlines.sh`.
+
+Required structure for each split path passed to `--train-path` / `--eval-path`:
+```
+/path/to/your_dataset/
+  image/
+    000001.jpg
+    000002.jpg
+  coco/
+    000001.json
+    000002.json
+  list_train.txt   # optional but preferred for training
+  list_val.txt     # optional but preferred for validation
+  list.txt         # fallback when list_train.txt / list_val.txt do not exist
+```
+
+Each line in list files can be an image filename (e.g., `000001.jpg`) or a COCO filename (e.g., `000001.json`).
+The loader resolves labels from `coco/<same_stem>.json` and loads images from `images[0].file_name` in each COCO file (resolved relative to dataset root unless already absolute).
+
+If your COCO files are stored under a different root than images, pass the optional:
+- `--train-coco-path ...` (aligned 1:1 with `--train-path`)
+- `--eval-coco-path ...` (aligned 1:1 with `--eval-path`)
+
+For quick list generation:
+```
+find /path/to/your_dataset/image -maxdepth 1 -type f | sed 's#^.*/##' | sort > /path/to/your_dataset/list.txt
+cp /path/to/your_dataset/list.txt /path/to/your_dataset/list_train.txt
+cp /path/to/your_dataset/list.txt /path/to/your_dataset/list_val.txt
+```
+
 ### Run Training Demo
 Make sure the configurations in ```run_train_demo.sh``` meet your requirements and run: 
 ```

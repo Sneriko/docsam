@@ -42,7 +42,7 @@ def PolygonToBBox(polygons):
 
 
 class DocSAM_GT(data.Dataset):
-    def __init__(self, data_paths, short_range=(704, 896), patch_size=(640, 640), patch_num=1, keep_size=False, stage="train"):
+    def __init__(self, data_paths, coco_paths=None, short_range=(704, 896), patch_size=(640, 640), patch_num=1, keep_size=False, stage="train"):
         """
         Initializes the dataset.
         
@@ -60,6 +60,11 @@ class DocSAM_GT(data.Dataset):
         self.patch_num = patch_num
         self.keep_size = keep_size
         self.stage = stage
+        self.coco_paths = coco_paths
+        if self.coco_paths is None:
+            self.coco_paths = self.data_paths
+        if len(self.coco_paths) != len(self.data_paths):
+            raise ValueError("Length of coco_paths must match length of data_paths.")
 
         self.image_names = []
         for data_path in self.data_paths:
@@ -78,6 +83,30 @@ class DocSAM_GT(data.Dataset):
             self.dataset_sampling_probabilities = [1.0 / len(self.data_paths) for _ in self.data_paths]
             
         print("Image number of each dataset:", [len(item) for item in self.image_names])
+
+
+    def _resolve_coco_path(self, data_idx, index):
+        """
+        Resolves the COCO annotation path for a sample list entry.
+
+        The list entry can be either an image filename (e.g., `xxx.jpg`) or
+        a COCO filename (e.g., `xxx.json`).
+        """
+
+        coco_root = self.coco_paths[data_idx]
+        entry = self.image_names[data_idx][index]
+
+        candidates = []
+        if entry.endswith(".json"):
+            candidates.append(os.path.join(coco_root, "coco", entry))
+        candidates.append(os.path.join(coco_root, "coco", os.path.splitext(entry)[0] + ".json"))
+
+        for path in candidates:
+            if os.path.exists(path):
+                return path
+
+        # Keep previous behavior semantics by returning the default expected path.
+        return candidates[-1]
         
         
     def __len__(self):
@@ -140,11 +169,31 @@ class DocSAM_GT(data.Dataset):
         - image: torch.Tensor, loaded image tensor.
         - mask: torch.Tensor, mask tensor.
         """
+        data_path = self.data_paths[data_idx]
+        entry = self.image_names[data_idx][index]
 
-        img_path = os.path.join(self.data_paths[data_idx], "image", self.image_names[data_idx][index])
-        img_path_resize = os.path.join(self.data_paths[data_idx], "image_resize", self.image_names[data_idx][index])
-        if os.path.exists(img_path_resize):
-            img_path = img_path_resize
+        # Preferred behavior: use the image path from COCO and resolve it
+        # relative to dataset root.
+        img_path = None
+        coco_path = self._resolve_coco_path(data_idx, index)
+        if os.path.exists(coco_path):
+            try:
+                coco_data = json.load(open(coco_path))
+                if len(coco_data.get("images", [])) > 0 and "file_name" in coco_data["images"][0]:
+                    coco_file_name = coco_data["images"][0]["file_name"]
+                    if os.path.isabs(coco_file_name):
+                        img_path = coco_file_name
+                    else:
+                        img_path = os.path.join(data_path, coco_file_name)
+            except:
+                img_path = None
+
+        # Backward-compatible fallback path resolution.
+        if (img_path is None) or (not os.path.exists(img_path)):
+            img_path = os.path.join(data_path, "image", entry)
+            img_path_resize = os.path.join(data_path, "image_resize", entry)
+            if os.path.exists(img_path_resize):
+                img_path = img_path_resize
 
         if img_path.endswith(".jpg"):
             try:
@@ -310,7 +359,8 @@ class DocSAM_GT(data.Dataset):
         """
 
         hei, wid = dsize[0], dsize[1]
-        coco_data = json.load(open(os.path.join(self.data_paths[data_idx], "coco", os.path.splitext(self.image_names[data_idx][index])[0] + '.json')))
+        coco_path = self._resolve_coco_path(data_idx, index)
+        coco_data = json.load(open(coco_path))
         coco_data = self._coco_data_rectify(coco_data)
         coco_data = self._coco_data_reszie(coco_data, (hei, wid))
         coco_data["annotations"] = sorted(coco_data["annotations"], key=lambda anno: anno["area"], reverse=True)
