@@ -12,6 +12,8 @@ import numpy as np
 np.set_printoptions(linewidth=400)
 np.set_printoptions(precision=4)
 
+from utils.numpy_compat import *  # noqa: F401,F403 (apply NumPy compatibility shims)
+
 import cv2
 from PIL import Image as PILImage
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
