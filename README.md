@@ -32,7 +32,7 @@ If your annotations are in PAGE XML format, you can convert them with:
 ```
 python scripts/pagexml_to_coco.py /path/to/dataset_root --output-list /path/to/dataset_root/list.txt
 ```
-The script recursively looks for PAGE XML files in folders named `page`, but by default only inside top-level dataset folders that start with `RA` (use `--collection-prefix ""` to disable this filter, or set a different prefix). It matches each XML file to an image with the same stem under the same root folder, and writes per-image COCO JSON files to `/path/to/dataset_root/coco`.
+The script recursively looks for PAGE XML files in folders named `page`, but by default only inside top-level dataset folders that start with `RA` (use `--collection-prefix ""` to disable this filter, or set a different prefix). You can also exclude top-level dataset folders by prefix via `--exclude-collection-prefix` (for example `--exclude-collection-prefix RA_debug RA_tmp`). It matches each XML file to an image with the same stem under the same root folder, and writes per-image COCO JSON files to `/path/to/dataset_root/coco`.
 
 By default, each COCO `images[0].file_name` is written as `image/<basename>`. If your images are stored elsewhere and you want to preserve the actual relative path from `dataset_root`, add:
 ```
@@ -95,6 +95,10 @@ For a single dataset, you can provide only:
 - `--eval-split-size <ratio>`
 
 and omit `--eval-path` / `--eval-list-path`; `train.py` will reuse training paths and split automatically.
+
+Validation schedule options:
+- Iteration-based validation (default): `--eval-by-epoch false --eval-interval-iters 200`
+- Epoch-based validation: `--eval-by-epoch true --eval-interval-epochs 1`
 
 For quick list generation:
 ```
