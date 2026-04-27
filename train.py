@@ -54,6 +54,9 @@ TOTAL_ITER = 1000
 GPU_IDS = '0'
 SEED = 1029
 EVAL_SPLIT_SIZE = 0.0
+EVAL_BY_EPOCH = False
+EVAL_INTERVAL_ITERS = 200
+EVAL_INTERVAL_EPOCHS = 1
 
 
 def str2bool(input_str):
@@ -126,6 +129,9 @@ def get_arguments():
     parser.add_argument("--gpus", type=str, default=GPU_IDS, help='Comma-separated list of GPU IDs to use')
     parser.add_argument("--seed", type=int, default=SEED, help='Random seed used for reproducibility and auto split')
     parser.add_argument("--eval-split-size", type=float, default=EVAL_SPLIT_SIZE, help='Auto split ratio for eval when list_val.txt is missing (0 disables)')
+    parser.add_argument("--eval-by-epoch", type=str2bool, default=EVAL_BY_EPOCH, help='If true, run validation at epoch boundaries instead of fixed iteration intervals')
+    parser.add_argument("--eval-interval-iters", type=int, default=EVAL_INTERVAL_ITERS, help='Validation frequency in iterations when --eval-by-epoch is false')
+    parser.add_argument("--eval-interval-epochs", type=int, default=EVAL_INTERVAL_EPOCHS, help='Validation frequency in epochs when --eval-by-epoch is true')
 
     return parser.parse_args()
 
@@ -304,6 +310,10 @@ if __name__ == '__main__':
 
     # Parse command-line arguments
     args = get_arguments()
+    if args.eval_interval_iters <= 0:
+        raise ValueError("--eval-interval-iters must be > 0.")
+    if args.eval_interval_epochs <= 0:
+        raise ValueError("--eval-interval-epochs must be > 0.")
     seed_torch(args.seed)
 
     # Initialize the DocSAM model
@@ -441,8 +451,15 @@ if __name__ == '__main__':
             if local_rank == 0 and current_iter % 10 == 0:
                 print(datetime.datetime.now(), "INFO:HisDoc2022: Iters: {:d}/{:d} || Lr: {:.8f} || Loss: {:.4f} || Time: {} <-- {}".format(current_iter, args.total_iter, lr, loss.item(), time_cost, time_need))
 
+            should_eval = False
+            if args.eval_by_epoch:
+                is_epoch_end = (i_iter == num_iters) or (current_iter >= args.total_iter)
+                should_eval = is_epoch_end and (((i_epoch + 1) % args.eval_interval_epochs == 0) or (current_iter >= args.total_iter))
+            else:
+                should_eval = (current_iter % args.eval_interval_iters == 0) or (current_iter == args.total_iter)
+
             # Save snapshots and update best model if necessary
-            if current_iter % 200 == 0 or current_iter == args.total_iter:
+            if should_eval:
                 if local_rank == 0:
                     bbox_mAP, mask_mAP, mask_mF1, mIoU = evaluate_all_datasets(args, model, stage="test") 
                     if mask_mAP > max_mask_mAP:

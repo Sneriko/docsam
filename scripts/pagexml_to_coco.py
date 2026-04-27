@@ -122,6 +122,17 @@ def parse_args() -> argparse.Namespace:
             "Default: RA."
         ),
     )
+    parser.add_argument(
+        "--exclude-collection-prefix",
+        type=str,
+        nargs="+",
+        default=None,
+        help=(
+            "Exclude PAGE XML files whose top-level dataset folder under dataset_root "
+            "starts with any of these prefixes (case-insensitive). Example: "
+            "--exclude-collection-prefix ra_bad tmp."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -348,8 +359,17 @@ def index_images(root: Path) -> Dict[str, List[Path]]:
     return image_map
 
 
-def find_pagexml_files(root: Path, collection_prefix: str) -> List[Path]:
+def find_pagexml_files(
+    root: Path,
+    collection_prefix: str,
+    exclude_collection_prefixes: Optional[Sequence[str]] = None,
+) -> List[Path]:
     normalized_prefix = collection_prefix.strip().lower()
+    excluded_prefixes = [
+        item.strip().lower()
+        for item in (exclude_collection_prefixes or [])
+        if item and item.strip()
+    ]
     pagexml_files: List[Path] = []
     for p in root.rglob("*.xml"):
         if not p.is_file() or p.parent.name.lower() != "page":
@@ -361,6 +381,11 @@ def find_pagexml_files(root: Path, collection_prefix: str) -> List[Path]:
             rel_parts = p.relative_to(root).parts
             top_level_dir = rel_parts[0].lower() if rel_parts else ""
             if not top_level_dir.startswith(normalized_prefix):
+                continue
+        if excluded_prefixes:
+            rel_parts = p.relative_to(root).parts
+            top_level_dir = rel_parts[0].lower() if rel_parts else ""
+            if any(top_level_dir.startswith(prefix) for prefix in excluded_prefixes):
                 continue
         pagexml_files.append(p)
     return sorted(pagexml_files)
@@ -476,7 +501,11 @@ def main() -> int:
     output_coco_dir = (args.output_coco_dir or (root / "coco")).resolve()
     output_coco_dir.mkdir(parents=True, exist_ok=True)
 
-    pagexml_files = find_pagexml_files(root, collection_prefix=args.collection_prefix)
+    pagexml_files = find_pagexml_files(
+        root,
+        collection_prefix=args.collection_prefix,
+        exclude_collection_prefixes=args.exclude_collection_prefix,
+    )
     if args.max_files is not None:
         if args.max_files <= 0:
             raise ValueError("--max-files must be > 0")
